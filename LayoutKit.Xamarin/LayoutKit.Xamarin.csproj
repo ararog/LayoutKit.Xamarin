@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{FCD8FAB2-AA5D-491C-81D3-DC2CD9AFDE29}</ProjectGuid>
+    <ProjectTypeGuids>{FEACFBD2-3405-455C-9665-78FE426C6842};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <RootNamespace>LayoutKit.Xamarin</RootNamespace>
+    <AssemblyName>LayoutKit.Xamarin</AssemblyName>
+    <IPhoneResourcePrefix>Resources</IPhoneResourcePrefix>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+    <MtouchUseSGen>true</MtouchUseSGen>
+    <MtouchUseRefCounting>true</MtouchUseRefCounting>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+    <MtouchUseSGen>true</MtouchUseSGen>
+    <MtouchUseRefCounting>true</MtouchUseRefCounting>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Core" />
+    <Reference Include="Xamarin.iOS" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Resources\" />
+    <Folder Include="Internal\" />
+    <Folder Include="Layouts\" />
+    <Folder Include="Math\" />
+    <Folder Include="Views\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Layout.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Alignment.cs" />
+    <Compile Include="Axis.cs" />
+    <Compile Include="Flexibility.cs" />
+    <Compile Include="LayoutArrangement.cs" />
+    <Compile Include="LayoutMeasurement.cs" />
+    <Compile Include="Layouts\InsetLayout.cs" />
+    <Compile Include="Layouts\LabelLayout.cs" />
+    <Compile Include="Layouts\PositioningLayout.cs" />
+    <Compile Include="Layouts\SizeLayout.cs" />
+    <Compile Include="Layouts\StackLayout.cs" />
+    <Compile Include="Math\AxisFlexibility.cs" />
+    <Compile Include="Math\AxisPoint.cs" />
+    <Compile Include="Math\AxisSize.cs" />
+    <Compile Include="Views\LayoutAdapterCollectionView.cs" />
+    <Compile Include="Views\LayoutAdapterTableView.cs" />
+    <Compile Include="Views\ReloadableView.cs" />
+    <Compile Include="Views\ReloadableViewLayoutAdapter.cs" />
+    <Compile Include="Views\StackView.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.CSharp.targets" />
+</Project>
