@@ -1,11 +1,16 @@
 ﻿using System;
+using UIKit;
+
 namespace LayoutKit.Xamarin
 {
-	public class LayoutAdapterCollectionView
+	public class LayoutAdapterCollectionView : UICollectionView
 	{
-		public LayoutAdapterCollectionView()
-		{
-		}
+        public ReloadableViewLayoutAdapter layoutAdapter = {
+            var adapter = new ReloadableViewLayoutAdapter(this);
+            this.dataSource = adapter;
+            this.delegate = adapter;
+            return adapter;
+        }();
 	}
 }
 

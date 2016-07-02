@@ -1,11 +1,10 @@
 ﻿using System;
 namespace LayoutKit.Xamarin
 {
-	public class Axis
+	public enum Axis
 	{
-		public Axis()
-		{
-		}
+        Vertical,
+        Horizontal
 	}
 }
 

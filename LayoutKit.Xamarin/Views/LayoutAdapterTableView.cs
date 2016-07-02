@@ -1,11 +1,16 @@
 ﻿using System;
+using UIKit;
+
 namespace LayoutKit.Xamarin
 {
-	public class LayoutAdapterTableView
+	public class LayoutAdapterTableView : UITableView
 	{
-		public LayoutAdapterTableView()
-		{
-		}
+        public ReloadableViewLayoutAdapter layoutAdapter = {
+            let adapter = new ReloadableViewLayoutAdapter(this);
+            this.dataSource = adapter;
+            this.delegate = adapter;
+            return adapter;
+        }();
 	}
 }
 
