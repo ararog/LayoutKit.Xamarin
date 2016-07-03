@@ -5,7 +5,7 @@ using UIKit;
 
 namespace LayoutKit.Xamarin
 {
-	public class InsetLayout: PositioningLayout, ILayout
+	public class InsetLayout: PositioningLayout<UIView>, ILayout
 	{
         public UIEdgeInsets insets;
         public Alignment alignment;
@@ -31,16 +31,16 @@ namespace LayoutKit.Xamarin
         public LayoutMeasurement Measurement(CGSize maxSize) {
             var insetMaxSize = maxSize.SizeDecreasedByInsets(insets);
             var sublayoutMeasurement = sublayout.Measurement(insetMaxSize);
-            var size = sublayoutMeasurement.size.SizeIncreasedByInsets(insets);
+            var size = sublayoutMeasurement.Size.SizeIncreasedByInsets(insets);
             return new LayoutMeasurement(this, size, maxSize, [sublayoutMeasurement]);
         }
 
         public LayoutArrangement Arrangement(CGRect rect, LayoutMeasurement measurement) {
-            var frame = alignment.Position(measurement.size, rect);
+            var frame = alignment.Position(measurement.Size, rect);
             var insetOrigin = new CGPoint(insets.Left, insets.Top);
             var insetSize = frame.Size.SizeDecreasedByInsets(insets);
             var sublayoutRect = new CGRect(insetOrigin, insetSize);
-            var sublayouts = measurement.sublayouts.Select( (LayoutMeasurement m) => {
+            var sublayouts = measurement.Sublayouts.Select( (LayoutMeasurement m) => {
                 return m.Arrangement(sublayoutRect);
             }).ToArray();
             return new LayoutArrangement(this, frame, sublayouts);

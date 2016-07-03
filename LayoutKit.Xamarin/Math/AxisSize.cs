@@ -5,10 +5,12 @@ namespace LayoutKit.Xamarin
 	public struct AxisSize
 	{
         public Axis axis;
-        public CGSize size;
+
+        public CGSize Size { get; set; }
 
         public nfloat AxisLength {
             set {
+                var size = Size;
                 switch(axis) {
                 case Axis.Horizontal:
                     size.Width = value;
@@ -17,15 +19,14 @@ namespace LayoutKit.Xamarin
                     size.Height = value;
                     break;
                 }
+                Size = size;
             }
             get {
                 switch(axis) {
                 case Axis.Horizontal:
-                    return size.Width;
-                    break;
+                    return Size.Width;
                 case Axis.Vertical:
-                    return size.Height;
-                    break;
+                    return Size.Height;
                 default:
                     return 0;
                 }
@@ -34,6 +35,7 @@ namespace LayoutKit.Xamarin
 
         public nfloat CrossLength {
             set {
+                var size = Size;
                 switch(axis) {
                 case Axis.Horizontal:
                     size.Height = value;
@@ -42,13 +44,14 @@ namespace LayoutKit.Xamarin
                     size.Width = value;
                     break;
                 }
+                Size = size;
             }
             get {
                 switch(axis) {
                 case Axis.Horizontal:
-                    return size.Height;
+                    return Size.Height;
                 case Axis.Vertical:
-                    return size.Width;
+                    return Size.Width;
                 default:
                     return 0;
                 }
@@ -58,18 +61,18 @@ namespace LayoutKit.Xamarin
         public AxisSize(Axis axis, CGSize size)
         {
             this.axis = axis;
-            this.size = size;
+            this.Size = size;
         }
 
-        public AxisSize(Axis axis, float axisLength, float crossLength)
+        public AxisSize(Axis axis, nfloat axisLength, nfloat crossLength)
         {
             this.axis = axis;
             switch(axis) {
             case Axis.Horizontal:
-                this.size = new CGSize(axisLength, crossLength);
+                this.Size = new CGSize(axisLength, crossLength);
                 break;
             default:
-                this.size = new CGSize(crossLength, axisLength);
+                this.Size = new CGSize(crossLength, axisLength);
                 break;
             }
         }

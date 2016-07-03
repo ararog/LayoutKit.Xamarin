@@ -38,7 +38,7 @@ namespace LayoutKit.Xamarin
             this.flexibility = flexibility;
         }
 
-        public AxisFlexibility(Axis axis, Int32 axisFlex, Int32 crossFlex)
+        public AxisFlexibility(Axis axis, Int32? axisFlex, Int32? crossFlex)
         {
             this.axis = axis;
             switch(axis) {

@@ -19,7 +19,7 @@ namespace LayoutKit.Xamarin
         public float spacing;
 
         /// The distribution of space along the stack's axis.
-        public StackLayout.Distribution distribution;
+        public Distribution distribution;
 
         /// The distance that the arranged views are inset from the stack view. Defaults to 0.
         public UIEdgeInsets contentInsets;
@@ -28,25 +28,28 @@ namespace LayoutKit.Xamarin
         public Alignment alignment;
 
         /// The stack's flexibility.
-        public Flexibility flexibility;
+        public Flexibility? flexibility;
 
         private UIView[] arrangedSubviews = new UIView[] { };
 
         public StackView(Axis axis,
             float spacing = 0,
-            StackLayout.Distribution distribution = StackLayout.Distribution.Leading,
-            UIEdgeInsets contentInsets = UIEdgeInsets.Zero,
-            Alignment alignment = Alignment.fill,
-            Flexibility flexibility = null)
+            Distribution distribution = Distribution.Leading,
+            UIEdgeInsets? contentInsets = null,
+            Alignment? alignment = null,
+            Flexibility? flexibility = null) : base(CGRect.Empty)
         {
 
             this.axis = axis;
             this.spacing = spacing;
             this.distribution = distribution;
             this.flexibility = flexibility;
-            this.contentInsets = contentInsets;
-            this.alignment = alignment;
-            base(CGRect.Empty);
+
+            if(contentInsets == null)
+                this.contentInsets = UIEdgeInsets.Zero;
+
+            if (alignment == null)
+                this.alignment = Alignment.fill;
         }
 
         public StackView(NSCoder aDecoder) {
@@ -87,16 +90,16 @@ namespace LayoutKit.Xamarin
             get {
                 var sublayouts = arrangedSubviews.Select(view => {
                     return new ViewLayout(view);
-                });
+                }).ToArray();
 
                 var stack = new StackLayout
                 (
                     axis,
+                    sublayouts,
                     spacing,
                     distribution,
                     alignment,
                     flexibility,
-                    sublayouts,
                     null
                 );
 
@@ -110,32 +113,40 @@ namespace LayoutKit.Xamarin
     {
         UIView view;
 
-        LayoutMeasurement Measurement(CGSize maxSize) {
+        public ViewLayout(UIView view){
+            this.view = view;
+        }
+
+        public LayoutMeasurement Measurement(CGSize maxSize) {
             var size = view.SizeThatFits(maxSize);
             return new LayoutMeasurement(this, size, maxSize, new LayoutMeasurement[] { });
         }
 
-        LayoutArrangement Arrangement(CGRect rect, LayoutMeasurement measurement) {
-            return new LayoutArrangement(this, rect, []);
+        public LayoutArrangement Arrangement(CGRect rect, LayoutMeasurement measurement) {
+            return new LayoutArrangement(this, rect, new LayoutArrangement[] { });
         }
 
-        UIView MakeView() {
+        public UIView MakeView() {
             return view;
         }
 
-        var Flexibility flexibility
+        public Flexibility Flexibility
         {
-            var horizontal = flexForAxis(.Horizontal);
-            var vertical = flexForAxis(.Vertical);
-            return new Flexibility(horizontal, vertical);
+            get {
+                var horizontal = FlexForAxis(UILayoutConstraintAxis.Horizontal);
+                var vertical = FlexForAxis(UILayoutConstraintAxis.Vertical);
+                return new Flexibility(horizontal, vertical);
+            }
         }
 
-        private Flexibility.Flex FlexForAxis(UILayoutConstraintAxis axis) {
-            switch (view.ContentHuggingPriorityForAxis(.Horizontal)) {
-            case UILayoutPriorityRequired:
+        private Int32? FlexForAxis(UILayoutConstraintAxis axis) {
+            if (view.ContentHuggingPriority(UILayoutConstraintAxis.Horizontal) == (float)UILayoutPriority.Required)
+            {
                 return null;
-            case let priority:
-                return -Int32(priority);
+            }
+            else
+            {
+                return 0;
             }
         }
     }

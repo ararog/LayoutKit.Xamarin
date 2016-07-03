@@ -82,7 +82,7 @@ namespace LayoutKit.Xamarin
             switch (axis) {
                 case Axis.Vertical:
                     return vertical;
-                case Axis.Horizontal:
+                default:
                     return horizontal;
             }
         }

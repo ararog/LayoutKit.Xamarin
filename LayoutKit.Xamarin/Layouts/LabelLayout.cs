@@ -11,8 +11,8 @@ namespace LayoutKit.Xamarin
 
         public enum TextType
         {
-            case unattributed(String);
-            case attributed(NSAttributedString);
+            Unattributed,
+            Attributed
         }
 
         public TextType textType;
@@ -51,7 +51,7 @@ namespace LayoutKit.Xamarin
                             Flexibility flexibility = defaultFlexibility,
                             ConfigDelegate config = null) :
 
-            base(.unattributed(text),
+            base(TextType.Unattributed,
                       numberOfLines,
                       font, alignment,
                       flexibility,
@@ -65,7 +65,7 @@ namespace LayoutKit.Xamarin
                         Flexibility flexibility = defaultFlexibility,
                         ConfigDelegate config = null) :
 
-            base(.attributed(attributedText),
+            base(TextType.Attributed,
                       numberOfLines,
                       font, alignment,
                       flexibility,
@@ -87,7 +87,7 @@ namespace LayoutKit.Xamarin
 
             CGSize size;
             switch (textType) {
-            case .attributed(let attributedText):
+            case TextType.Attributed:
                 if (attributedText == "") {
                     return CGSize.Empty;
                 }
@@ -108,7 +108,7 @@ namespace LayoutKit.Xamarin
 
                 size = attributedTextWithFont.BoundingRectWithSize(maxSize, options, null).Size;
                 break;
-            case .unattributed(let text):
+            case TextType.Unattributed:
                 if (text == "") {
                     return CGSize.Empty;
                 }
@@ -142,7 +142,7 @@ namespace LayoutKit.Xamarin
         }
 
         public LayoutArrangement Arrangement(CGRect rect, LayoutMeasurement measurement) {
-            var frame = alignment.Position(measurement.size, rect);
+            var frame = alignment.Position(measurement.Size, rect);
             return new LayoutArrangement(this, frame, new LayoutArrangement[] { });
         }
 
@@ -152,10 +152,10 @@ namespace LayoutKit.Xamarin
             label.Lines = numberOfLines;
             label.Font = font;
             switch(textType) {
-            case .unattributed(let text):
+            case TextType.Unattributed:
                 label.Text = text;
                 break;
-            case .attributed(let attributedText):
+            case TextType.Attributed:
                 label.AttributedText = attributedText;
                 break;
             }

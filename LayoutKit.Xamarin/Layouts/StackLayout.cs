@@ -1,18 +1,52 @@
 ﻿using CoreGraphics;
 using System;
 using System.Linq;
+using UIKit;
+
 namespace LayoutKit.Xamarin
 {
-	public class StackLayout : PositioningLayout, ILayout
+    public enum Distribution
+    {
+        Leading,
+
+        /**
+         Sublayouts are positioned starting at the bottom edge of vertical stacks or at the the trailing edge of horizontal stacks.
+         */
+        Trailing,
+
+        /**
+         Sublayouts are positioned so that they are centered along the stack's axis.
+         */
+        Center,
+
+        /**
+         Distributes excess axis space by increasing the spacing between each sublayout by an equal amount.
+         The sublayouts and the adjusted spacing consume all of the available axis space.
+         */
+        FillEqualSpacing,
+
+        /**
+         Distributes axis space equally among the sublayouts.
+         The spacing between the sublayouts remains equal to the spacing parameter.
+         */
+        FillEqualSize,
+
+        /**
+         Distributes excess axis space by growing the most flexible sublayout along the axis.
+         */
+        FillFlexing,
+    }
+
+    public class StackLayout : PositioningLayout<UIView>, ILayout
     {
         /**
          Specifies how excess space along the axis is allocated.
         */
 
-        public struct DistributionConfig
+        private struct DistributionConfig
         {
-            public float InitialAxisOffset { get; set; }
-            public float AxisSpacing { get; set; }
+            public nfloat InitialAxisOffset { get; set; }
+            public nfloat AxisSpacing { get; set; }
             public int? StretchIndex { get; set; }
         }
 
@@ -51,24 +85,24 @@ namespace LayoutKit.Xamarin
             this.Axis = axis;
             this.Spacing = spacing;
             this.Distribution = distribution;
-            this.Flexibility = flexibility ?? StackLayout.DefaultFlexibility(axis, sublayouts);
+            this.Flexibility = flexibility ?? DefaultFlexibility(Axis, Sublayouts);
             this.Sublayouts = sublayouts;
         }
 
         public LayoutMeasurement Measurement(CGSize maxSize)  {
 
-            var availableSize = new AxisSize(axis, maxSize);
-            var sublayoutMeasurements = [LayoutMeasurement ?](sublayouts.count, null);
-            var usedSize = new AxisSize(axis, CGSize.Empty);
+            var availableSize = new AxisSize(Axis, maxSize);
+            var sublayoutMeasurements = new LayoutMeasurement[Sublayouts.Length];
+            var usedSize = new AxisSize(Axis, CGSize.Empty);
 
-            float sublayoutLengthForEqualSizeDistribution;
-            if(distribution == .fillEqualSize) {
-                sublayoutLengthForEqualSizeDistribution = sublayoutSpaceForEqualSizeDistribution(availableSize.axisLength, sublayouts.count);
+            nfloat? sublayoutLengthForEqualSizeDistribution;
+            if(Distribution == Distribution.FillEqualSize) {
+                sublayoutLengthForEqualSizeDistribution = SublayoutSpaceForEqualSizeDistribution(availableSize.AxisLength, Sublayouts.Length);
             } else {
                 sublayoutLengthForEqualSizeDistribution = null;
             }
 
-            foreach((index, sublayout) in sublayoutsByAxisFlexibilityAscending())
+            foreach(var dynamic in SublayoutsByAxisFlexibilityAscending())
             {
                 if(availableSize.AxisLength <= 0 || availableSize.CrossLength <= 0) {
                     // There is no more room in the stack so don't bother measuring the rest of the sublayouts.
@@ -76,60 +110,60 @@ namespace LayoutKit.Xamarin
                 }
 
                 CGSize sublayoutMasurementAvailableSize;
-                if let sublayoutLengthForEqualSizeDistribution = sublayoutLengthForEqualSizeDistribution {
-                    sublayoutMasurementAvailableSize = new AxisSize(axis,
-                                                        sublayoutLengthForEqualSizeDistribution,
+                if (sublayoutLengthForEqualSizeDistribution != null) {
+                    sublayoutMasurementAvailableSize = new AxisSize(Axis,
+                                                        sublayoutLengthForEqualSizeDistribution.Value,
                                                         availableSize.CrossLength).Size;
                 } 
                 else {
                     sublayoutMasurementAvailableSize = availableSize.Size;
                 }
 
-                var sublayoutMeasurement = sublayout.measurement(within: sublayoutMasurementAvailableSize);
-                sublayoutMeasurements[index] = sublayoutMeasurement
-                var sublayoutAxisSize = new AxisSize(axis, sublayoutMeasurement.size);
+                var sublayoutMeasurement = dynamic.Sublayout.Measurement(sublayoutMasurementAvailableSize);
+                sublayoutMeasurements[dynamic.Index] = sublayoutMeasurement;
+                var sublayoutAxisSize = new AxisSize(Axis, sublayoutMeasurement.size);
 
                 if (sublayoutAxisSize.AxisLength > 0) {
                     // If we are the first sublayout in the stack, then no leading spacing is required.
                     // Otherwise account for the spacing.
-                    let leadingSpacing = (usedSize.AxisLength > 0) ? spacing : 0;
+                    var leadingSpacing = (usedSize.AxisLength > 0) ? Spacing : 0;
                     usedSize.AxisLength += leadingSpacing + sublayoutAxisSize.AxisLength;
-                    usedSize.CrossLength = max(usedSize.CrossLength, sublayoutAxisSize.CrossLength);
+                    usedSize.CrossLength = Math.Max(usedSize.CrossLength, sublayoutAxisSize.CrossLength);
 
                     // Reserve spacing for the next sublayout.
-                    availableSize.AxisLength -= sublayoutAxisSize.axisLength + spacing;
+                    availableSize.AxisLength -= sublayoutAxisSize.AxisLength + Spacing;
                 }
             }
 
-            let nonNilMeasuredSublayouts = sublayoutMeasurements.flatMap { $0 };
+            var nonNilMeasuredSublayouts = sublayoutMeasurements.SelectMany( i => i.Sublayouts).ToArray();
 
-            if(distribution == .fillEqualSize && !nonNilMeasuredSublayouts.isEmpty) {
-                let maxAxisLength = nonNilMeasuredSublayouts.map({ AxisSize(axis, $0.size).AxisLength }).maxElement() ?? 0;
-                usedSize.AxisLength = (maxAxisLength + spacing) * nonNilMeasuredSublayouts.Count - spacing;
+            if(Distribution == Distribution.FillEqualSize && nonNilMeasuredSublayouts.Length != 0) {
+                var maxAxisLength = nonNilMeasuredSublayouts.Select(subLayout => new AxisSize(Axis, subLayout.Size).AxisLength).Max<nfloat>();
+                usedSize.AxisLength = (maxAxisLength + Spacing) * nonNilMeasuredSublayouts.Length - Spacing;
             }
 
-            return new LayoutMeasurement(this, usedSize.size, maxSize, nonNilMeasuredSublayouts);
+            return new LayoutMeasurement(this, usedSize.Size, maxSize, nonNilMeasuredSublayouts);
         }
 
         public LayoutArrangement Arrangement(CGRect rect, LayoutMeasurement measurement) {
-            var frame = alignment.Position(measurement.Size, rect);
-            var availableSize = new AxisSize(axis, frame.size);
-            var excessAxisLength = availableSize.axisLength - AxisSize(axis, measurement.Size).AxisLength;
-            var config = distributionConfig(excessAxisLength)
+            var frame = Alignment.Position(measurement.Size, rect);
+            var availableSize = new AxisSize(Axis, frame.Size);
+            var excessAxisLength = availableSize.AxisLength - new AxisSize(Axis, measurement.Size).AxisLength;
+            var config = GetDistributionConfig(excessAxisLength);
 
-            var nextOrigin = new AxisPoint(axis, config.initialAxisOffset, 0);
+            var nextOrigin = new AxisPoint(Axis, config.InitialAxisOffset, 0);
             var sublayoutArrangements = new LayoutArrangement[] { };
-            foreach((index, sublayout) in measurement.Sublayouts.GetEnumerator()) {
-                var sublayoutAvailableSize = new AxisSize(axis, sublayout.size);
+            foreach(var dynamic in measurement.Sublayouts.GetEnumerator()) {
+                var sublayoutAvailableSize = new AxisSize(Axis, dynamic.Sublayout.Size);
                 sublayoutAvailableSize.CrossLength = availableSize.CrossLength;
-                if (distribution == .fillEqualSize) {
+                if (Distribution == Distribution.FillEqualSize) {
                     sublayoutAvailableSize.AxisLength = SublayoutSpaceForEqualSizeDistribution(
-                        new AxisSize(axis, frame.size).AxisLength,
+                        new AxisSize(Axis, frame.Size).AxisLength,
                         measurement.Sublayouts.Length);
-                } else if (config.stretchIndex == index) {
+                } else if (config.StretchIndex == dynamic.Index) {
                     sublayoutAvailableSize.AxisLength += excessAxisLength;
                 }
-                var sublayoutArrangement = sublayout.Arrangement(new CGRect(nextOrigin.Point, sublayoutAvailableSize.Size));
+                var sublayoutArrangement = dynamic.Sublayout.Arrangement(new CGRect(nextOrigin.Point, sublayoutAvailableSize.Size));
                 sublayoutArrangements.Append(sublayoutArrangement);
                 nextOrigin.AxisOffset += sublayoutAvailableSize.AxisLength;
                 if (sublayoutAvailableSize.AxisLength > 0) {
@@ -140,86 +174,49 @@ namespace LayoutKit.Xamarin
             return new LayoutArrangement(this, frame, sublayoutArrangements);
         }
 
-        private float SublayoutSpaceForEqualSizeDistribution(float totalAvailableSpace, int sublayoutCount) {
+        private nfloat SublayoutSpaceForEqualSizeDistribution(nfloat totalAvailableSpace, int sublayoutCount) {
             if(sublayoutCount <= 0) {
                 return totalAvailableSpace;
             }
-            if(spacing == 0) {
+            if(Spacing == 0) {
                 return totalAvailableSpace / sublayoutCount;
             }
             // Note: we don't actually need to check for zero spacing above, because division by zero produces a valid result for floating point values.
             // We check anyway for the sake of clarity.
-            var maxSpacings = Math.Floor(totalAvailableSpace / spacing);
+            var maxSpacings = Math.Floor(totalAvailableSpace / Spacing);
             var visibleSublayoutCount = Math.Min(sublayoutCount, maxSpacings + 1);
-            var spaceAvailableForSublayouts = totalAvailableSpace - (visibleSublayoutCount - 1) * spacing;
+            var spaceAvailableForSublayouts = totalAvailableSpace - (visibleSublayoutCount - 1) * Spacing;
             return spaceAvailableForSublayouts / visibleSublayoutCount;
         }
-    }
 
-    public enum Distribution
-    {
-        Leading,
-
-        /**
-         Sublayouts are positioned starting at the bottom edge of vertical stacks or at the the trailing edge of horizontal stacks.
-         */
-        Trailing,
-
-        /**
-         Sublayouts are positioned so that they are centered along the stack's axis.
-         */
-        Center,
-
-        /**
-         Distributes excess axis space by increasing the spacing between each sublayout by an equal amount.
-         The sublayouts and the adjusted spacing consume all of the available axis space.
-         */
-        FillEqualSpacing,
-
-        /**
-         Distributes axis space equally among the sublayouts.
-         The spacing between the sublayouts remains equal to the spacing parameter.
-         */
-        FillEqualSize,
-
-        /**
-         Distributes excess axis space by growing the most flexible sublayout along the axis.
-         */
-        FillFlexing,
-    }
-
-    #region Distribution
-
-    public static class StackLayout_Distribution
-    {
-        private static StackLayout.DistributionConfig DistributionConfig(this StackLayout stackLayout, float excessAxisLength) {
-            float initialAxisOffset = 0;
-            float axisSpacing = 0;
+        private DistributionConfig GetDistributionConfig(nfloat excessAxisLength) {
+            nfloat initialAxisOffset = 0;
+            nfloat axisSpacing = 0;
             int? stretchIndex = null;
-            switch(stackLayout.Distribution)
+            switch(Distribution)
             {
                 case Distribution.Leading:
                     initialAxisOffset = 0;
-                    axisSpacing = stackLayout.Spacing;
+                    axisSpacing = Spacing;
                     break;
                 case Distribution.Trailing:
                     initialAxisOffset = excessAxisLength;
-                    axisSpacing = stackLayout.Spacing;
+                    axisSpacing = Spacing;
                     break;
                 case Distribution.Center:
                     initialAxisOffset = excessAxisLength / 2.0f;
-                    axisSpacing = stackLayout.Spacing;
+                    axisSpacing = Spacing;
                     break;
                 case Distribution.FillEqualSpacing:
                     initialAxisOffset = 0;
-                    axisSpacing = Math.Max(stackLayout.Spacing, excessAxisLength / stackLayout.Sublayouts.Length - 1);
+                    axisSpacing = Math.Max(Spacing, excessAxisLength / Sublayouts.Length - 1);
                     break;
                 case Distribution.FillEqualSize:
                     initialAxisOffset = 0;
-                    axisSpacing = stackLayout.Spacing;
+                    axisSpacing = Spacing;
                     break;
                 case Distribution.FillFlexing:
-                    axisSpacing = stackLayout.Spacing;
+                    axisSpacing = Spacing;
                     initialAxisOffset = 0;
                     if(excessAxisLength > 0){
                         stretchIndex = StretchableSublayoutIndex();
@@ -233,31 +230,24 @@ namespace LayoutKit.Xamarin
                 StretchIndex = stretchIndex
             };
         }
-    }
 
-    #endregion Distribution
-
-    #region Flexing
-
-    public static class StackLayout_Flexing
-    {
         /**
         Returns the sublayouts sorted by flexibility ascending.
         */
-        private static dynamic[] SublayoutsByAxisFlexibilityAscending(this StackLayout stackLayout) {
-            return stackLayout.Sublayouts.GetEnumerator().Sort(CompareLayoutsByFlexibilityAscending);
+        private dynamic[] SublayoutsByAxisFlexibilityAscending() {
+            return Sublayouts.Sort(CompareLayoutsByFlexibilityAscending);
         }
 
         /**
          Returns the index of the most flexible sublayout.
          It returns nil if there are no flexible sublayouts.
          */
-        private static int? StretchableSublayoutIndex(this StackLayout stackLayout) {
-            dynamic tuple = stackLayout.Sublayouts.GetEnumerator().maxElement(CompareLayoutsByFlexibilityAscending);
+        private int? StretchableSublayoutIndex() {
+            dynamic tuple = Sublayouts.MaxElement(CompareLayoutsByFlexibilityAscending);
             if (tuple == null) {
                 return null;
             }
-            if(sublayout.Flexibility.Flex(stackLayout.Axis) == null) {
+            if(Flexibility.Flex(Axis) == null) {
                 // The most flexible sublayout is still not flexible, so don't stretch it.
                 return null;
             }
@@ -269,9 +259,9 @@ namespace LayoutKit.Xamarin
          If two sublayouts have the same flexibility, then sublayout with the higher index is considered more flexible.
          Inflexible layouts are sorted before all flexible layouts.
          */
-        private static bool CompareLayoutsByFlexibilityAscending(this StackLayout stackLayout, dynamic left, dynamic right) {
-            var leftFlex = left.Layout.Flexibility.Flex(stackLayout.Axis);
-            var rightFlex = right.Layout.Flexibility.Flex(stackLayout.Axis);
+        private bool CompareLayoutsByFlexibilityAscending(dynamic left, dynamic right) {
+            var leftFlex = left.Layout.Flexibility.Flex(Axis);
+            var rightFlex = right.Layout.Flexibility.Flex(Axis);
             if(leftFlex == rightFlex) {
                 return left.Index < right.Index;
             }
@@ -282,12 +272,12 @@ namespace LayoutKit.Xamarin
         /**
          Inherit the maximum flexibility of sublayouts along the axis and minimum flexibility of sublayouts across the axis.
          */
-        private static Flexibility DefaultFlexibility(Axis axis, ILayout[] sublayouts) {
-            var initial = new AxisFlexibility(axis, null, .max);
+        private Flexibility DefaultFlexibility(Axis axis, ILayout[] sublayouts) {
+            var initial = new AxisFlexibility(axis, null, Flexibility.max);
             return sublayouts.reduce(initial) { (AxisFlexibility flexibility, ILayout sublayout) -> AxisFlexibility in
-                var subflex = new AxisFlexibility(axis, sublayout.flexibility);
-                var axisFlex = Flexibility.Max(flexibility.axisFlex, subflex.axisFlex);
-                var crossFlex = Flexibility.Min(flexibility.crossFlex, subflex.crossFlex);
+                var subflex = new AxisFlexibility(axis, sublayout.Flexibility);
+                var axisFlex = Flexibility.Max(flexibility.AxisFlex, subflex.AxisFlex);
+                var crossFlex = Flexibility.Min(flexibility.CrossFlex, subflex.CrossFlex);
                 return new AxisFlexibility(axis, axisFlex, crossFlex);
             }.Flexibility;
         }

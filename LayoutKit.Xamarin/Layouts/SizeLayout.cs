@@ -1,10 +1,11 @@
 ﻿using CoreGraphics;
 using System;
 using System.Linq;
+using UIKit;
 
 namespace LayoutKit.Xamarin
 {
-	public class SizeLayout : PositioningLayout, ILayout
+	public class SizeLayout<T> : PositioningLayout<UIView>, ILayout
 	{
         public nfloat? width;
         public nfloat? height;
@@ -32,8 +33,8 @@ namespace LayoutKit.Xamarin
         {
             this.width = width;
             this.height = height;
-            this.alignment = alignment ?? SizeLayout.DefaultAlignment(width, height);
-            this.flexibility = flexibility ?? SizeLayout.DefaultFlexibility(width, height);
+            this.alignment = alignment ?? SizeLayout<T>.DefaultAlignment(width, height);
+            this.flexibility = flexibility ?? SizeLayout<T>.DefaultFlexibility(width, height);
             this.sublayout = sublayout;
         }
 
@@ -65,7 +66,7 @@ namespace LayoutKit.Xamarin
         }
 
         public LayoutMeasurement Measurement(CGSize maxSize) {
-            var size = new CGSize(width ?? .max, height ?? .max);
+            var size = new CGSize(width ?? float.MaxValue, height ?? float.MaxValue);
             var constrainedSize = size.SizeDecreasedToSize(maxSize);
 
             // If at least one dimension is nil, then we need to measure the sublayout to inherit its value (zero if there is no sublayout).

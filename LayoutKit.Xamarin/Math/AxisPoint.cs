@@ -5,11 +5,13 @@ namespace LayoutKit.Xamarin
 	public struct AxisPoint
 	{
         public Axis axis;
-        public CGPoint point;
+
+        public CGPoint Point { get; set; } 
 
         public nfloat AxisOffset {
             set {
-                switch(axis) {
+                var point = Point;
+                switch (axis) {
                 case Axis.Horizontal:
                     point.X = value;
                     break;
@@ -17,13 +19,14 @@ namespace LayoutKit.Xamarin
                     point.Y = value;
                     break;
                 }
+                Point = point;
             }
             get {
                 switch (axis) {
                 case Axis.Horizontal:
-                    return point.X;
+                    return Point.X;
                 case Axis.Vertical:
-                    return point.Y;
+                    return Point.Y;
                 default:
                     return 0;
                 }
@@ -32,6 +35,7 @@ namespace LayoutKit.Xamarin
 
         public nfloat CrossOffset {
             set {
+                var point = Point;
                 switch(axis) {
                 case Axis.Horizontal:
                     point.Y = value;
@@ -40,13 +44,14 @@ namespace LayoutKit.Xamarin
                     point.X = value;
                     break;
                 }
+                Point = point;
             }
             get {
                 switch(axis) {
                 case Axis.Horizontal:
-                    return point.Y;
+                    return Point.Y;
                 case Axis.Vertical:
-                    return point.X;
+                    return Point.X;
                 default:
                     return 0;
                 }
@@ -56,18 +61,18 @@ namespace LayoutKit.Xamarin
         public AxisPoint(Axis axis, CGPoint point)
         {
             this.axis = axis;
-            this.point = point;
+            this.Point = point;
         }
 
-        public AxisPoint(Axis axis, float axisOffset, float crossOffset)
+        public AxisPoint(Axis axis, nfloat axisOffset, nfloat crossOffset)
         {
             this.axis = axis;
             switch(axis) {
             case Axis.Horizontal:
-                this.point = new CGPoint(axisOffset, crossOffset);
+                this.Point = new CGPoint(axisOffset, crossOffset);
                 break;
             default:
-                this.point = new CGPoint(crossOffset, axisOffset);
+                this.Point = new CGPoint(crossOffset, axisOffset);
                 break;
             }
         }	

@@ -4,12 +4,22 @@ namespace LayoutKit.Xamarin
 {
     public class ReloadableViewLayoutAdapter
     {
-        var reuseIdentifier = string(ReloadableViewLayoutAdapter);
+        string reuseIdentifier = typeof(ReloadableViewLayoutAdapter).Name;
 
         /// The current layout arrangement.
-        private(set) var currentArrangement = new Section < LayoutArrangement[] >[]{};
+        private Section<LayoutArrangement[]>[] currentArrangement = new Section < LayoutArrangement[] >[]{};
+
+        ReloadableView reloadableView;
+
+        public delegate void LoggerDelegate(string);
+
+        public delegate void CompletionDelegate();
+
+        /// Logs messages.
+        public LoggerDelegate logger = null;
 
         /// The queue that layouts are computed on.
+        /*
         NSOperationQueue backgroundLayoutQueue = {
             var queue = new NSOperationQueue();
             queue.name = String(ReloadableViewLayoutAdapter);
@@ -19,11 +29,7 @@ namespace LayoutKit.Xamarin
             queue.QualityOfService = .UserInitiated;
             return queue;
         }();
-
-        ReloadableView reloadableView;
-
-        /// Logs messages.
-        public var logger: (String -> Void)? = null;
+        */
 
         public ReloadableViewLayoutAdapter(ReloadableView reloadableView)
         {
@@ -40,17 +46,20 @@ namespace LayoutKit.Xamarin
          layoutProvider will be called on a background thread in this case.
          If synchronous is true, then the view will be reloaded with the new layout.
          */
-        public void reload<T: CollectionType, U: CollectionType where U.Generator.Element == Layout, T.Generator.Element == Section<U>>(
-            float width  = nfloat.MaxValue,
-            float height = nfloat.MaxValue,
+        public void Reload<T, U, Z>
+            (
+            Func<T> layoutProvider,
+            float width  = 0,
+            float height = 0,
             bool synchronous = false,
-            Void -> T layoutProvider,
-            (Void -> Void)? completion = null) {
-
-            assert(NSThread.IsMainThread, "reload must be called on the main thread")
+            CompletionDelegate completion = null) 
+            where U : ILayout
+            where Z : Section<U>
+        {
+            //Assert(NSThread.IsMain, "reload must be called on the main thread");
 
             // All previous layouts are invalid.
-            backgroundLayoutQueue.CancelAllOperations()
+            backgroundLayoutQueue.CancelAllOperations();
 
             if( width <= 0 && height <= 0) {
                 return;
@@ -60,7 +69,7 @@ namespace LayoutKit.Xamarin
                 return;
             }
 
-            var axis = reloadableView.scrollAxis(); // avoid capturing the reloadableView in the layout function.
+            var axis = reloadableView.ScrollAxis(); // avoid capturing the reloadableView in the layout function.
     
             func layout(layout: Layout) -> LayoutArrangement {
                 switch axis {
@@ -72,9 +81,9 @@ namespace LayoutKit.Xamarin
             }
 
             if(synchronous) {
-                reloadSynchronously(layout, layoutProvider, completion);
+                ReloadSynchronously(layout, layoutProvider, completion);
             } else {
-                reloadAsynchronously(layout, layoutProvider, completion);
+                ReloadAsynchronously(layout, layoutProvider, completion);
             }
         }
 
@@ -84,33 +93,39 @@ namespace LayoutKit.Xamarin
          This is useful if you want to precompute the layout for this collection view as part of another layout.
          One example is nested collection/table views (see NestedCollectionViewController.swift in the sample app).
          */
-        public void reload(Section<LayoutArrangement[]>[] arrangement)
+        public void Reload(Section<LayoutArrangement[]>[] arrangement)
         {
-            assert(NSThread.IsMainThread(), "reload must be called on the main thread");
+            assert(NSThread.IsMain, "reload must be called on the main thread");
             backgroundLayoutQueue.CancelAllOperations();
             currentArrangement = arrangement;
             reloadableView?.ReloadDataSync();
         }
 
-        private void reloadSynchronously<T: CollectionType, U: CollectionType where U.Generator.Element == Layout, T.Generator.Element == Section<U>>(
-            layoutFunc layoutFunc: Layout -> LayoutArrangement,
-            layoutProvider: Void -> T,
-            completion: (Void -> Void)? = null) {
-
-            let start = CFAbsoluteTimeGetCurrent();
+        private void ReloadSynchronously<T, U, Z> 
+             (
+            Func<ILayout, LayoutArrangement> layoutFunc,
+            Func<T> layoutProvider,
+            CompletionDelegate completion = null) 
+            where U : ILayout
+            where Z : Section<U>
+        {
+            var start = CFAbsoluteTimeGetCurrent();
             currentArrangement = layoutProvider().map { sectionLayout in
                 return sectionLayout.map(layoutFunc);
             };
             reloadableView?.ReloadDataSync();
             var end = CFAbsoluteTimeGetCurrent();
             logger?("user: \((end-start).ms)");
-            completion?();
+            completion();
         }
 
-        private void reloadAsynchronously<T: CollectionType, U: CollectionType where U.Generator.Element == Layout, T.Generator.Element == Section<U>>(
-            layoutFunc layoutFunc: Layout -> LayoutArrangement,
-            layoutProvider: Void -> T,
-            completion: (Void -> Void)? = nil) {
+        private void ReloadAsynchronously<T, U, Z>(
+            Func<ILayout, LayoutArrangement> layoutFunc,
+            Func<T> layoutProvider,
+            CompletionDelegate completion = null)
+            where U : ILayout
+            where Z : Section<U>
+        {
 
             let start = CFAbsoluteTimeGetCurrent();
             CFAbsoluteTime timeOnMainThread = 0;
@@ -217,7 +232,7 @@ namespace LayoutKit.Xamarin
             backgroundLayoutQueue.addOperation(operation);
         }
 
-        private void update(Section<LayoutArrangement[]>[] pendingArrangement,
+        private void Update(Section<LayoutArrangement[]>[] pendingArrangement,
                                            NSIndexPath[] insertedIndexPaths,
                                            ReloadableView reloadableView,
                                            bool incremental)
