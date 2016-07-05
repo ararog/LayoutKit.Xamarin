@@ -45,5 +45,29 @@ namespace LayoutKit.Xamarin
          */
         Flexibility Flexibility { get; }
     }
+
+    public abstract class Layout : ILayout
+    {
+        public abstract Flexibility Flexibility { get; }
+
+        public abstract LayoutArrangement Arrangement(CGRect rect, LayoutMeasurement measurement);
+        public abstract UIView MakeView();
+        public abstract LayoutMeasurement Measurement(CGSize maxSize);
+
+        public LayoutArrangement Arrangement(CGPoint? origin = null, nfloat? width = null, nfloat? height = null) {
+            if (origin == null)
+                origin = CGPoint.Empty;
+
+            var maxSize = new CGSize(width ?? nfloat.MaxValue, height ?? nfloat.MaxValue);
+            var measurement = this.Measurement(maxSize);
+            var rect = new CGRect(origin.Value, measurement.Size);
+            var size = rect.Size;
+            size.Width = width ?? rect.Size.Width;
+            size.Height = height ?? rect.Size.Height;
+            rect.Size = size;
+            var arrangement = this.Arrangement(rect, measurement);
+            return arrangement;
+        }
+    }
 }
 

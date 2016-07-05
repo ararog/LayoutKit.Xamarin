@@ -1,15 +1,18 @@
 ﻿using Foundation;
 using System;
+using System.Diagnostics;
+using CoreFoundation;
+using UIKit;
+using CoreGraphics;
+
 namespace LayoutKit.Xamarin
 {
-    public class ReloadableViewLayoutAdapter
+    public class ReloadableViewLayoutAdapter : IUITableViewDataSource, IUITableViewDelegate, IUICollectionViewDataSource, IUICollectionViewDelegateFlowLayout
     {
         string reuseIdentifier = typeof(ReloadableViewLayoutAdapter).Name;
 
         /// The current layout arrangement.
-        private Section<LayoutArrangement[]>[] currentArrangement = new Section < LayoutArrangement[] >[]{};
-
-        ReloadableView reloadableView;
+        private Section<LayoutArrangement[], LayoutArrangement>[] currentArrangement = new Section <LayoutArrangement[], LayoutArrangement>[]{};
 
         public delegate void LoggerDelegate(string);
 
@@ -19,20 +22,27 @@ namespace LayoutKit.Xamarin
         public LoggerDelegate logger = null;
 
         /// The queue that layouts are computed on.
-        /*
-        NSOperationQueue backgroundLayoutQueue = {
-            var queue = new NSOperationQueue();
-            queue.name = String(ReloadableViewLayoutAdapter);
-            // The queue is serial so we can do streaming properly.
-            // If a new layout request comes it, the existing request will be cancelled and terminate as quickly as possible.
-            queue.MaxConcurrentOperationCount = 1;
-            queue.QualityOfService = .UserInitiated;
-            return queue;
-        }();
-        */
+        NSOperationQueue backgroundLayoutQueue;
+
+        ReloadableView reloadableView;
+
+        public IntPtr Handle
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
 
         public ReloadableViewLayoutAdapter(ReloadableView reloadableView)
         {
+            var queue = new NSOperationQueue();
+            queue.Name = typeof(ReloadableViewLayoutAdapter).Name;
+            // The queue is serial so we can do streaming properly.
+            // If a new layout request comes it, the existing request will be cancelled and terminate as quickly as possible.
+            queue.MaxConcurrentOperationCount = 1;
+            queue.QualityOfService = NSQualityOfService.UserInitiated;
+            this.backgroundLayoutQueue = queue;
             this.reloadableView = reloadableView;
             reloadableView.RegisterViews(reuseIdentifier);
         }
@@ -54,7 +64,7 @@ namespace LayoutKit.Xamarin
             bool synchronous = false,
             CompletionDelegate completion = null) 
             where U : ILayout
-            where Z : Section<U>
+            where Z : Section<U[], U>
         {
             //Assert(NSThread.IsMain, "reload must be called on the main thread");
 
@@ -65,20 +75,21 @@ namespace LayoutKit.Xamarin
                 return;
             }
 
-            if(reloadableView != reloadableView) {
+            if(reloadableView == null) {
                 return;
             }
 
             var axis = reloadableView.ScrollAxis(); // avoid capturing the reloadableView in the layout function.
-    
-            func layout(layout: Layout) -> LayoutArrangement {
-                switch axis {
-                case .vertical:
-                    return layout.arrangement(width: width)
-                case .horizontal:
-                    return layout.arrangement(height: height)
+
+            Func<Layout, LayoutArrangement > layout = (Layout l) =>
+            {
+                switch (axis) {
+                case Axis.Vertical:
+                    return l.Arrangement(null, width, null);
+                default:
+                    return l.Arrangement(null, null, height);
                 }
-            }
+            };
 
             if(synchronous) {
                 ReloadSynchronously(layout, layoutProvider, completion);
@@ -93,12 +104,12 @@ namespace LayoutKit.Xamarin
          This is useful if you want to precompute the layout for this collection view as part of another layout.
          One example is nested collection/table views (see NestedCollectionViewController.swift in the sample app).
          */
-        public void Reload(Section<LayoutArrangement[]>[] arrangement)
+        public void Reload(Section<LayoutArrangement[], LayoutArrangement>[] arrangement)
         {
-            assert(NSThread.IsMain, "reload must be called on the main thread");
+            Debug.Assert(NSThread.IsMain, "reload must be called on the main thread");
             backgroundLayoutQueue.CancelAllOperations();
             currentArrangement = arrangement;
-            reloadableView?.ReloadDataSync();
+            reloadableView.ReloadDataSync();
         }
 
         private void ReloadSynchronously<T, U, Z> 
@@ -107,18 +118,20 @@ namespace LayoutKit.Xamarin
             Func<T> layoutProvider,
             CompletionDelegate completion = null) 
             where U : ILayout
-            where Z : Section<U>
+            where Z : Section<ILayout[], ILayout>
         {
             var start = CFAbsoluteTimeGetCurrent();
-            currentArrangement = layoutProvider().map { sectionLayout in
-                return sectionLayout.map(layoutFunc);
-            };
-            reloadableView?.ReloadDataSync();
+            currentArrangement = layoutProvider().Select((sectionLayout) =>
+            {
+                return sectionLayout.Select(layoutFunc);
+            });
+            reloadableView.ReloadDataSync();
             var end = CFAbsoluteTimeGetCurrent();
-            logger?("user: \((end-start).ms)");
+            logger("user: ((end-start).ms)");
             completion();
         }
 
+        /*
         private void ReloadAsynchronously<T, U, Z>(
             Func<ILayout, LayoutArrangement> layoutFunc,
             Func<T> layoutProvider,
@@ -127,7 +140,7 @@ namespace LayoutKit.Xamarin
             where Z : Section<U>
         {
 
-            let start = CFAbsoluteTimeGetCurrent();
+            var start = CFAbsoluteTimeGetCurrent();
             CFAbsoluteTime timeOnMainThread = 0;
             defer {
                 timeOnMainThread += CFAbsoluteTimeGetCurrent() - start;
@@ -137,7 +150,7 @@ namespace LayoutKit.Xamarin
             // Otherwise wait for layout to complete before updating the view.
             var incremental = currentArrangement.IsEmpty;
 
-            var operation = NSBlockOperation();
+            var operation = new NSBlockOperation();
             operation.AddExecutionBlock { [weak self, weak operation] in
 
             // Any time we want to get the reloadable view, check to see if the operation has been cancelled.
@@ -268,28 +281,152 @@ namespace LayoutKit.Xamarin
                 reloadableView.Insert(insertedSections);
             }
         }
-    }
+        */
 
-    public struct Section<C> {
+        #region UITableViewDelegate
 
-        typealias T = C.Generator.Element;
-
-        public T? header;
-        public C items;
-        public T? footer;
-
-        public Section(T? header = null, C items, T? footer = null)
-        {
-            this.header = header;
-            this.items = items;
-            this.footer = footer;
+        public nfloat GetHeightForRow(UITableView tableView, NSIndexPath indexPath) {
+            return currentArrangement[indexPath.Section].Items[indexPath.Item].Frame.Height;
         }
 
-        public Section<U[]> Map<U>(T -> U mapper) {
-            var header = this.header.map(mapper);
-            var items = this.items.map(mapper);
-            var footer = this.footer.map(mapper);
-            return new Section<U[]>(header, items, footer);
+        public nfloat GetHeightForHeader(UITableView tableView, nint section) {
+            return currentArrangement[section].Header.Frame.Height ?? 0;
+        }
+
+        public nfloat GetHeightForFooter(UITableView tableView, nint section) {
+            return currentArrangement[section].Footer.Frame.Height ?? 0;
+        }
+
+        public UIView GetViewForHeader(UITableView tableView, nint section) {
+            return RenderLayout(currentArrangement[section].Header, tableView);
+        }
+
+        public UIView GetViewForFooter(UITableView tableView, nint section) {
+            return RenderLayout(currentArrangement[section].Footer, tableView);
+        }
+
+        private UIView RenderLayout(LayoutArrangement layout, UITableView tableView) {
+            if(layout == null) {
+                return null;
+            }
+
+            var view = DequeueHeaderFooterView(tableView);
+            layout.MakeViews(view);
+            return view;
+        }
+
+        private UITableViewHeaderFooterView DequeueHeaderFooterView(UITableView tableView) {
+            var view = tableView.DequeueReusableHeaderFooterView(reuseIdentifier);
+            if (view != null) {
+                return view
+            } else {
+                return new UITableViewHeaderFooterView(new NSString(reuseIdentifier));
+            }
+        }
+
+        #endregion
+
+        #region UITableViewDataSource
+
+        public nint NumberOfSections(UITableView tableView, nint section)
+        {
+            return currentArrangement.Length;
+        }
+
+        public nint RowsInSection(UITableView tableView, nint section)
+        {
+            return currentArrangement[section].Items.Length;
+        }
+
+        public UITableViewCell GetCell(UITableView tableView, NSIndexPath indexPath)
+        {
+            var item = currentArrangement[indexPath.Section].Items[indexPath.Item];
+            var cell = tableView.DequeueReusableCell(reuseIdentifier, indexPath);
+            item.MakeViews(cell.ContentView);
+            return cell;
+        }
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+
+        #endregion
+
+        #region UICollectionViewDelegateFlowLayout
+
+        public CGSize GetSizeForItem(UICollectionView collectionView, UICollectionViewLayout collectionViewLayout, NSIndexPath indexPath) {
+            return currentArrangement[indexPath.Section].Items[indexPath.Item].Frame.Size;
+        }
+
+        public CGSize GetReferenceSizeForHeader(UICollectionView collectionView, UICollectionViewLayout collectionViewLayout, int section) {
+            return currentArrangement[section].Header?.Frame.Size ?? CGSize.Empty;
+        }
+
+        public CGSize GetReferenceSizeForFooter(UICollectionView collectionView, UICollectionViewLayout collectionViewLayout, int section) {
+            return currentArrangement[section].Footer?.Frame.Size ?? CGSize.Empty;
+        }
+
+        #endregion
+
+        #region UICollectionViewDatasource
+
+        public nint GetItemsCount(UICollectionView collectionView, nint section)
+        {
+            return currentArrangement[section].Items.Length;
+        }
+
+        public nint NumberOfSections(UICollectionView collectionView) {
+            return currentArrangement.Length;
+        }
+
+        public UICollectionViewCell GetCell(UICollectionView collectionView, NSIndexPath indexPath)
+        {
+            var item = currentArrangement[indexPath.Section].Items[indexPath.Item];
+            var cell = collectionView.DequeueReusableCell(reuseIdentifier, indexPath) as UICollectionViewCell;
+            item.MakeViews(cell.ContentView);
+            return cell;
+        }
+
+        public UICollectionReusableView GetViewForSupplementaryElement(UICollectionView collectionView, NSString kind, NSIndexPath indexPath) {
+            var view = collectionView.DequeueReusableSupplementaryView(kind, reuseIdentifier, indexPath);
+            LayoutArrangement arrangement = null;
+            if (kind == UICollectionElementKindSectionKey.Header) {
+                arrangement = currentArrangement[indexPath.Section].Header;
+            }
+            else if (kind == UICollectionElementKindSectionKey.Footer) {
+                arrangement = currentArrangement[indexPath.Section].Footer;
+            }
+            else { 
+                arrangement = null;
+                Debug.Fail("unknown supplementary view kind (kind)");
+            }
+            arrangement?.MakeViews(view);
+
+            return view;
+        }
+
+        #endregion
+    }
+
+    public struct Section<C, T> {
+
+        public T Header { get; }
+        public C Items { get; }
+        public T Footer { get; }
+
+        public Section(T header, C items, T footer)
+        {
+            this.Header = header;
+            this.Items = items;
+            this.Footer = footer;
+        }
+
+        public Section<U[], U> Map<U>(Func<T, U> mapper) {
+            var header = this.Header.Select(mapper);
+            var items = this.Items.Select(mapper);
+            var footer = this.Footer.Select(mapper);
+            return new Section<U[], U>(header, items, footer);
         }
     }
 }

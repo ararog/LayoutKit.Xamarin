@@ -8,15 +8,17 @@ namespace LayoutKit.Xamarin
 {
 	public class LayoutArrangement
 	{
-        public ILayout layout;
-        public CGRect frame;
-        public LayoutArrangement[] sublayouts;
+        public CGRect Frame { get; }
+
+        public ILayout Layout { get; }
+
+        public LayoutArrangement[] Sublayouts { get; }
 
         public LayoutArrangement(ILayout layout, CGRect frame, LayoutArrangement[] sublayouts)
         {
-            this.layout = layout;
-            this.frame = frame;
-            this.sublayouts = sublayouts;
+            this.Layout = layout;
+            this.Frame = frame;
+            this.Sublayouts = sublayouts;
         }
 
         /**
@@ -50,10 +52,10 @@ namespace LayoutKit.Xamarin
                 rootView = view;
             } else {
                 // We have multiple views so create a root view.
-                rootView = new UIView(frame: frame);
+                rootView = new UIView(Frame);
                 foreach(var subview in views) {
                     // Unapply the offset that was applied in makeSubviews()
-                    subview.Frame.Offset(-frame.X, -frame.Y);
+                    subview.Frame.Offset(-Frame.X, -Frame.Y);
                     rootView.AddSubview(subview);
                 }
             }
@@ -74,20 +76,22 @@ namespace LayoutKit.Xamarin
         private void FlipSubviewsHorizontally(UIView view)
         {
             foreach(var subview in view.Subviews) {
-                subview.Frame.X = view.Frame.Width - subview.Frame.GetMaxX();
+                CGRect frame = subview.Frame;
+                frame.X = view.Frame.Width - subview.Frame.GetMaxX();
+                subview.Frame = frame;
                 FlipSubviewsHorizontally(subview);
             }
         }
 
         /// Returns the views for the layout and all of its sublayouts.
         private UIView[] MakeSubviews() {
-            var subviews = sublayouts.SelectMany((LayoutArrangement sublayout) => {
+            var subviews = Sublayouts.SelectMany((LayoutArrangement sublayout) => {
                 return sublayout.MakeSubviews();
             }).ToArray();
 
-            var view = layout.MakeView();
+            var view = Layout.MakeView();
             if (view != null) {
-                view.Frame = frame;
+                view.Frame = Frame;
                 foreach(var subview in subviews) {
                     view.AddSubview(subview);
                 }
@@ -95,7 +99,7 @@ namespace LayoutKit.Xamarin
                 return views;
             } else {
                 foreach(var subview in subviews) {
-                    subview.Frame.Offset(frame.X, frame.Y);
+                    subview.Frame.Offset(Frame.X, Frame.Y);
                 }
                 return subviews;
             }
