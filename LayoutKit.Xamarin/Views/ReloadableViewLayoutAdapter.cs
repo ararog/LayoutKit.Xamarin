@@ -63,7 +63,7 @@ namespace LayoutKit.Xamarin
             float height = 0,
             bool synchronous = false,
             CompletionDelegate completion = null) 
-            where U : ILayout
+            where U : Layout
             where Z : Section<U[], U>
         {
             //Assert(NSThread.IsMain, "reload must be called on the main thread");
@@ -92,9 +92,9 @@ namespace LayoutKit.Xamarin
             };
 
             if(synchronous) {
-                ReloadSynchronously(layout, layoutProvider, completion);
+                ReloadSynchronously<T, U, Z>(layout, layoutProvider, completion);
             } else {
-                ReloadAsynchronously(layout, layoutProvider, completion);
+                ReloadAsynchronously<T, U, Z>(layout, layoutProvider, completion);
             }
         }
 
@@ -118,7 +118,7 @@ namespace LayoutKit.Xamarin
             Func<T> layoutProvider,
             CompletionDelegate completion = null) 
             where U : ILayout
-            where Z : Section<ILayout[], ILayout>
+            where Z : Section<U[], U>
         {
             var start = CFAbsoluteTimeGetCurrent();
             currentArrangement = layoutProvider().Select((sectionLayout) =>
@@ -131,15 +131,14 @@ namespace LayoutKit.Xamarin
             completion();
         }
 
-        /*
         private void ReloadAsynchronously<T, U, Z>(
             Func<ILayout, LayoutArrangement> layoutFunc,
             Func<T> layoutProvider,
             CompletionDelegate completion = null)
             where U : ILayout
-            where Z : Section<U>
+            where Z : Section<U[], U>
         {
-
+            /*
             var start = CFAbsoluteTimeGetCurrent();
             CFAbsoluteTime timeOnMainThread = 0;
             defer {
@@ -165,11 +164,11 @@ namespace LayoutKit.Xamarin
             var pendingInserts = new NSIndexPath[] { }; // Used for incremental rendering.
             foreach( (sectionIndex, sectionLayout) in layoutProvider().enumerate())
             {
-                var header = sectionLayout.header.map(layoutFunc);
-                var footer = sectionLayout.footer.map(layoutFunc);
+                var header = sectionLayout.Header.Select(layoutFunc);
+                var footer = sectionLayout.Footer.Select(layoutFunc);
                 var items = new LayoutArrangement[] { };
 
-                foreach((itemIndex, itemLayout) in sectionLayout.items.enumerate()) {
+                foreach((itemIndex, itemLayout) in sectionLayout.Items.enumerate()) {
                     if(reloadableView() != null) {
                         return
                     }
@@ -237,26 +236,25 @@ namespace LayoutKit.Xamarin
                     let end = CFAbsoluteTimeGetCurrent();
                     // The amount of time spent on the main thread may be high, but the user impact is small because
                     // we are dispatching small blocks and not doing any work if the user is interacting.
-                    self?.logger?("user: \((end-start).ms) (main: \((timeOnMainThread + end - startMain).ms))");
+                    self?.logger?("user: ((end-start).ms) (main: ((timeOnMainThread + end - startMain).ms))");
                     completion?();
                 });
             }   
 
             backgroundLayoutQueue.addOperation(operation);
+            */
         }
 
-        private void Update(Section<LayoutArrangement[]>[] pendingArrangement,
-                                           NSIndexPath[] insertedIndexPaths,
-                                           ReloadableView reloadableView,
-                                           bool incremental)
+        private void Update(Section<LayoutArrangement[], LayoutArrangement>[] pendingArrangement,
+            NSIndexPath[] insertedIndexPaths, ReloadableView reloadableView, bool incremental)
         {
 
-            var empty = currentArrangement.IsEmpty;
-            var previousSectionCount = currentArrangement.Count;
+            var empty = currentArrangement.Length == 0;
+            var previousSectionCount = currentArrangement.Length;
             currentArrangement = pendingArrangement;
 
             if(empty || !incremental) {
-                reloadableView.reloadDataSync();
+                reloadableView.ReloadDataSync();
                 return;
             }
 
@@ -281,7 +279,6 @@ namespace LayoutKit.Xamarin
                 reloadableView.Insert(insertedSections);
             }
         }
-        */
 
         #region UITableViewDelegate
 
@@ -409,7 +406,7 @@ namespace LayoutKit.Xamarin
         #endregion
     }
 
-    public struct Section<C, T> {
+    public class Section<C, T> {
 
         public T Header { get; }
         public C Items { get; }

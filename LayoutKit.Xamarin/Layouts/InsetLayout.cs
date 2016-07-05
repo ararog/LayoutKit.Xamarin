@@ -5,7 +5,7 @@ using UIKit;
 
 namespace LayoutKit.Xamarin
 {
-	public class InsetLayout: PositioningLayout<UIView>, ILayout
+	public class InsetLayout: PositioningLayout<UIView>, Layout
 	{
         public UIEdgeInsets insets;
         public Alignment alignment;

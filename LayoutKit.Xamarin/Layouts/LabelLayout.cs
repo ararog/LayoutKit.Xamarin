@@ -5,7 +5,7 @@ using UIKit;
 
 namespace LayoutKit.Xamarin
 {
-	public class LabelLayout : ILayout
+	public class LabelLayout : Layout
 	{
         public delegate void ConfigDelegate(UIView view);
 
@@ -23,22 +23,31 @@ namespace LayoutKit.Xamarin
         public ConfigDelegate config;
 
         private const int defaultNumberOfLines = 0;
-        private const UIFont defaultFont = UIFont.SystemFontOfSize(UIFont.LabelFontSize);
-        private const Alignment defaultAlignment = Alignment.topLeading;
-        private const Flexibility defaultFlexibility = Flexibility.flexible;
 
         public LabelLayout(TextType textType,
                     int numberOfLines = defaultNumberOfLines,
-                    UIFont font = defaultFont,
-                    Alignment alignment = defaultAlignment,
-                    Flexibility flexibility = defaultFlexibility,
+                    UIFont font = null,
+                    Alignment? alignment = null,
+                    Flexibility? flexibility = null,
                     ConfigDelegate config = null) {
-        
+
+            if (alignment == null)
+                this.alignment = Alignment.topLeading;
+            else
+                this.alignment = alignment.Value;
+
+            if(flexibility == null)
+                this.flexibility = Flexibility.flexible;
+            else
+                this.flexibility = flexibility.Value;
+
+            if (font == null)
+                this.font = UIFont.SystemFontOfSize(UIFont.LabelFontSize);
+            else
+                this.font = font;
+
             this.textType = textType;
             this.numberOfLines = numberOfLines;
-            this.font = font;
-            this.alignment = alignment;
-            this.flexibility = flexibility;
             this.config = config;
         }
 
@@ -46,12 +55,12 @@ namespace LayoutKit.Xamarin
 
         public LabelLayout(string text,
                             int numberOfLines = defaultNumberOfLines,
-                            UIFont font = defaultFont,
-                            Alignment alignment = defaultAlignment,
-                            Flexibility flexibility = defaultFlexibility,
+                            UIFont font = null,
+                            Alignment? alignment = null,
+                            Flexibility? flexibility = null,
                             ConfigDelegate config = null) :
 
-            base(TextType.Unattributed,
+            this(TextType.Unattributed,
                       numberOfLines,
                       font, alignment,
                       flexibility,
@@ -60,12 +69,12 @@ namespace LayoutKit.Xamarin
 
         public LabelLayout(NSAttributedString attributedText,
                         int numberOfLines = defaultNumberOfLines,
-                        UIFont font = defaultFont,
-                        Alignment alignment = defaultAlignment,
-                        Flexibility flexibility = defaultFlexibility,
+                        UIFont font = null,
+                        Alignment? alignment = null,
+                        Flexibility? flexibility = null,
                         ConfigDelegate config = null) :
 
-            base(TextType.Attributed,
+            this(TextType.Attributed,
                       numberOfLines,
                       font, alignment,
                       flexibility,
