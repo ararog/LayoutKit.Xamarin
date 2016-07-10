@@ -1,5 +1,6 @@
 ﻿using CoreGraphics;
 using Foundation;
+using LayoutKit.Xamarin.Internal;
 using System;
 using UIKit;
 
@@ -110,7 +111,7 @@ namespace LayoutKit.Xamarin
                 var attributedTextWithFont = new NSMutableAttributedString(attributedText.string, fontAttribute);
                 var fullRange = new NSRange(0, (attributedText.string as NSString).length);
                 attributedTextWithFont.BeginEditing();
-                attributedText.EnumerateAttributesInRange(fullRange, .LongestEffectiveRangeNotRequired, { (attributes, range, _) in
+                attributedText.EnumerateAttributesInRange(fullRange, NSAttributedStringEnumeration.LongestEffectiveRangeNotRequired, { (attributes, range, _) in
                     attributedTextWithFont.AddAttributes(attributes, range);
                 });
                 attributedTextWithFont.EndEditing();
