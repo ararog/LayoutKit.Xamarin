@@ -19,7 +19,7 @@ namespace LayoutKit.Xamarin
         public delegate void CompletionDelegate();
 
         /// Logs messages.
-        public LoggerDelegate logger = null;
+        LoggerDelegate logger = null;
 
         /// The queue that layouts are computed on.
         NSOperationQueue backgroundLayoutQueue;
@@ -42,7 +42,7 @@ namespace LayoutKit.Xamarin
             // If a new layout request comes it, the existing request will be cancelled and terminate as quickly as possible.
             queue.MaxConcurrentOperationCount = 1;
             queue.QualityOfService = NSQualityOfService.UserInitiated;
-            this.backgroundLayoutQueue = queue;
+            backgroundLayoutQueue = queue;
             this.reloadableView = reloadableView;
             reloadableView.RegisterViews(reuseIdentifier);
         }
@@ -81,7 +81,7 @@ namespace LayoutKit.Xamarin
 
             var axis = reloadableView.ScrollAxis(); // avoid capturing the reloadableView in the layout function.
 
-            Func<Layout, LayoutArrangement > layout = (Layout l) =>
+            Func<Layout, LayoutArrangement> layout = (Layout l) =>
             {
                 switch (axis) {
                 case Axis.Vertical:
@@ -120,129 +120,137 @@ namespace LayoutKit.Xamarin
             where U : ILayout
             where Z : Section<U[], U>
         {
-            var start = CFAbsoluteTimeGetCurrent();
+            var start = DateTime.Now;
             currentArrangement = layoutProvider().Select((sectionLayout) =>
             {
                 return sectionLayout.Select(layoutFunc);
             });
             reloadableView.ReloadDataSync();
-            var end = CFAbsoluteTimeGetCurrent();
-            logger("user: ((end-start).ms)");
+            var end = DateTime.Now;
+            var diff = end - start;
+            logger(string.Format("user: {0}", diff.Milliseconds));
             completion();
         }
 
         private void ReloadAsynchronously<T, U, Z>(
             Func<ILayout, LayoutArrangement> layoutFunc,
-            Func<T> layoutProvider,
+            Func<T[]> layoutProvider,
             CompletionDelegate completion = null)
             where U : ILayout
             where Z : Section<U[], U>
         {
-            /*
-            var start = CFAbsoluteTimeGetCurrent();
-            CFAbsoluteTime timeOnMainThread = 0;
-            defer {
-                timeOnMainThread += CFAbsoluteTimeGetCurrent() - start;
-            }
+            var start = DateTime.Now.Millisecond;
+            double timeOnMainThread = 0;
+            try { 
 
-            // Only do incremental rendering if there is currently no data.
-            // Otherwise wait for layout to complete before updating the view.
-            var incremental = currentArrangement.IsEmpty;
+                // Only do incremental rendering if there is currently no data.
+                // Otherwise wait for layout to complete before updating the view.
+                var incremental = currentArrangement.Length == 0;
 
-            var operation = new NSBlockOperation();
-            operation.AddExecutionBlock { [weak self, weak operation] in
+                var operation = new NSBlockOperation();
+                operation.AddExecutionBlock (() => { 
 
-            // Any time we want to get the reloadable view, check to see if the operation has been cancelled.
-            let reloadableView: Void -> ReloadableView? = {
-                if (operation?.Cancelled ?? true) {
-                    return null;
-                }
-                return this?.ReloadableView;
-            }
+                    // Any time we want to get the reloadable view, check to see if the operation has been cancelled.
+                    Func<ReloadableView> reloadableViewFunc = () => {
+                        if (operation.IsCancelled) {
+                            return null;
+                        }
+                        return this.reloadableView;
+                    };
 
-            var pendingArrangement = new Section<LayoutArrangement[]>[] { };
-            var pendingInserts = new NSIndexPath[] { }; // Used for incremental rendering.
-            foreach( (sectionIndex, sectionLayout) in layoutProvider().enumerate())
-            {
-                var header = sectionLayout.Header.Select(layoutFunc);
-                var footer = sectionLayout.Footer.Select(layoutFunc);
-                var items = new LayoutArrangement[] { };
+                    var pendingArrangement = new Section<LayoutArrangement[], LayoutArrangement>[] { };
+                    var pendingInserts = new NSIndexPath[] { }; // Used for incremental rendering.
+                    foreach( dynamic item in layoutProvider())
+                    {
+                        var header = sectionLayout.Header.Select(layoutFunc);
+                        var footer = sectionLayout.Footer.Select(layoutFunc);
+                        var items = new LayoutArrangement[] { };
 
-                foreach((itemIndex, itemLayout) in sectionLayout.Items.enumerate()) {
-                    if(reloadableView() != null) {
-                        return
-                    }
-
-                    items.Append(layoutFunc(itemLayout));
-
-                    if (!incremental) {
-                        continue;
-                    }
-
-                    pendingInserts.Append(new NSIndexPath(itemIndex, sectionIndex));
-
-                    // Create a copy of the pending layout and append the incremental layout state for this section.
-                    var incrementalArrangement = pendingArrangement;
-                    incrementalArrangement.Append(new Section(header, items, footer));
-
-                    // Dispatch sync to main thread to render the incremental layout.
-                    // Sync is necessary so that it can modify pendingInserts after the incremental render.
-                    // If the incremental render is skipped, then pendingInserts will remain unchanged.
-                    // TODO: this would probably be better as dispatch_async so that this thread can continue
-                    // to compute layouts in the background. Changing this would require some more complex logic.
-                    dispatch_sync(dispatch_get_main_queue(), {
-                            var startMain = CFAbsoluteTimeGetCurrent();
-                            defer {
-                                timeOnMainThread += CFAbsoluteTimeGetCurrent() - startMain;
-                            }
-
-                            if(reloadableView != ReloadableView()) {
+                        foreach(dynamic subitem in items) {
+                            if(reloadableViewFunc() != null) {
                                 return;
                             }
 
-                            // Don't modify the data while the view is moving.
-                            // Doing so causes weird artifacts (i.e. "bouncing" breaks).
-                            // We will try again on the next loop iteration.
-                            if(reloadableView.tracking || reloadableView.decelerating) {
+                            items.Append(layoutFunc(itemLayout));
+
+                            if (!incremental) {
+                                continue;
+                            }
+
+                            pendingInserts.Append(new NSIndexPath(itemIndex, sectionIndex));
+
+                            // Create a copy of the pending layout and append the incremental layout state for this section.
+                            var incrementalArrangement = pendingArrangement;
+                            incrementalArrangement.Append(new Section(header, items, footer));
+
+                            // Dispatch sync to main thread to render the incremental layout.
+                            // Sync is necessary so that it can modify pendingInserts after the incremental render.
+                            // If the incremental render is skipped, then pendingInserts will remain unchanged.
+                            // TODO: this would probably be better as dispatch_async so that this thread can continue
+                            // to compute layouts in the background. Changing this would require some more complex logic.
+                            DispatchQueue.MainQueue.DispatchSync(() => 
+                            {
+                                var startMain = DateTime.Now.Millisecond;
+                                try { 
+                                    if(reloadableView != reloadableViewFunc()) {
+                                        return;
+                                    }
+
+                                    // Don't modify the data while the view is moving.
+                                    // Doing so causes weird artifacts (i.e. "bouncing" breaks).
+                                    // We will try again on the next loop iteration.
+                                    if(reloadableView.Tracking || reloadableView.Decelerating) {
+                                        return;
+                                    }
+
+                                    Update(
+                                        incrementalArrangement,
+                                        pendingInserts,
+                                        reloadableView,
+                                        incremental
+                                    );
+
+                                    pendingInserts.RemoveAll();
+                                }
+                                finally {
+                                    timeOnMainThread += DateTime.Now.Millisecond - startMain;
+                                }
+                            });
+                        }
+                        pendingArrangement.Append(new Section(header, items, footer));
+                    }
+
+                    // Do the final render.
+                    DispatchQueue.MainQueue.DispatchSync(() => {
+                        var startMain = DateTime.Now.Millisecond;
+                        try
+                        {
+
+                            if (reloadableView == null)
+                            {
                                 return;
                             }
 
-                            self?.Update(
-                                incrementalArrangement,
-                                pendingInserts,
-                                reloadableView,
-                                incremental
-                            );
+                            Update(pendingArrangement, pendingInserts, reloadableView, incremental);
 
-                            pendingInserts.RemoveAll();
-                        });
-                    }
-                    pendingArrangement.Append(new Section(header, items, footer));
-                }
-
-                // Do the final render.
-                dispatch_sync(dispatch_get_main_queue(), {
-                    let startMain = CFAbsoluteTimeGetCurrent()
-                    defer {
-                        timeOnMainThread += CFAbsoluteTimeGetCurrent() - start
-                    }
-
-                    guard let reloadableView = reloadableView() else {
-                        return;
-                    }
-
-                    self?.update(pendingArrangement, pendingInserts, reloadableView, incremental);
-
-                    let end = CFAbsoluteTimeGetCurrent();
-                    // The amount of time spent on the main thread may be high, but the user impact is small because
-                    // we are dispatching small blocks and not doing any work if the user is interacting.
-                    self?.logger?("user: ((end-start).ms) (main: ((timeOnMainThread + end - startMain).ms))");
-                    completion?();
+                            var end = DateTime.Now.Millisecond;
+                            // The amount of time spent on the main thread may be high, but the user impact is small because
+                            // we are dispatching small blocks and not doing any work if the user is interacting.
+                            logger("user: ((end-start).ms) (main: ((timeOnMainThread + end - startMain).ms))");
+                            completion();
+                        }
+                        finally
+                        {
+                            timeOnMainThread += DateTime.Now.Millisecond - start;
+                        }
+                    });
                 });
-            }   
+            }
+            finally {
+               timeOnMainThread += DateTime.Now.Millisecond - start;
+            }
 
-            backgroundLayoutQueue.addOperation(operation);
-            */
+            backgroundLayoutQueue.AddOperation(operation);
         }
 
         private void Update(Section<LayoutArrangement[], LayoutArrangement>[] pendingArrangement,
